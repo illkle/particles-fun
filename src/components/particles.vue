@@ -1,9 +1,6 @@
 <template>
-  <div
-    ref="letterWrapper"
-    class="absolute top-1/2 -translate-y-1/2 left-1/2 max-md:-translate-x-1/2 z-50"
-  >
-    <svg class="w-[300px]" viewBox="0 0 101 109" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <div ref="letterWrapper" class="absolute top-1/2 opacity-0 -translate-y-1/2 left-1/2 -translate-x-1/2 z-50">
+    <svg class="w-[300px]" viewBox="0 0 101 109" stroke="white" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
       <path
         ref="letterRef"
         d="M0.782227 107V0.5H30.1822V42.65L62.7322 0.5H96.0322L58.6822 48.05L98.1322 107H65.5822L39.4822 67.1L30.1822 78.5V107H0.782227Z"
@@ -11,24 +8,16 @@
     </svg>
 
     <div
-      class="absolute top-0 left-0 w-10 h-10 bg-red-500 opacity-10"
+      class="absolute top-0 left-0 w-2 rounded-2xl h-2 bg-red-500"
       :style="`transform: translate(${onLetterPosition.x}px, ${onLetterPosition.y}px)`"
     ></div>
   </div>
-
-  <div
-    class="absolute opacity-0 hover:opacity-100 transition-opacity bg-neutral-600 p-2 rounded-tl-xl bottom-0 right-0 z-100 flex flex-col"
-  >
-    <div v-for="(el, i) in controls">
-      <input v-model.number="controls[i]" type="number" class="w-20 bg-zinc-950 text-center" />
-      {{ i }}
-    </div>
-  </div>
-
+  <Controls v-model="controls" />
   <div ref="canvasP" class="absolute top-0 overflow-hidden opacity-100"></div>
 </template>
 
 <script setup lang="ts">
+import Controls from './controls.vue'
 import FragInfo from './sim_fragInfo.glsl'
 import FragPosition from './sim_fragPosition.glsl'
 import FragVelocity from './sim_fragVelocity.glsl'
@@ -38,26 +27,23 @@ import FragmentShader from './part_fragmentShader.glsl'
 import VertexShader from './part_vertexShader.glsl'
 import { GPUComputationRenderer } from 'three/examples/jsm/Addons.js'
 import anime from 'animejs/lib/anime.es.js'
-import { useElementBounding, useWindowSize } from '@vueuse/core'
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { useElementBounding, useLocalStorage, useWindowSize } from '@vueuse/core'
 import { ref, computed, onMounted, watchEffect } from 'vue'
 import { AttributeGenerator } from '@/utils/attributeGenerator'
-import { fillTexture } from '@/utils/helpers'
+import { easeInExpo, fillTexture } from '@/utils/helpers'
 import { customRandomness2 } from '@/utils/random'
 import { range } from '@/utils/helpers'
 import { defaultControls } from './controls'
+
+const controls = useLocalStorage('particleFunSettings', defaultControls)
 
 const { width, height } = useWindowSize()
 
 const canvasP = ref<HTMLDivElement | null>(null)
 
-let renderer: THREE.WebGLRenderer
-let scene: THREE.Scene | null
+let renderer = new THREE.WebGLRenderer({ alpha: true })
+let scene = new THREE.Scene()
 let camera: THREE.PerspectiveCamera | null
-
-const controls = ref(defaultControls)
-
-const canSave = ref(false)
 
 const letterWrapper = ref<HTMLDivElement | null>(null)
 
@@ -68,19 +54,6 @@ const letterRef = ref<HTMLDivElement | null>(null)
 const onLetterPosition = ref({ x: 0, y: 0, rotate: 0, percentage: 0, pathLen: 0 })
 
 const letterSLen = 20
-const letterDashArray = computed(() => {
-  const { pathLen } = onLetterPosition.value
-
-  if (!pathLen) return ''
-
-  return `${letterSLen} ${pathLen - letterSLen}`
-})
-
-const letterDashOffset = computed(() => {
-  const { pathLen, percentage } = onLetterPosition.value
-
-  return -1 * pathLen * percentage
-})
 
 onMounted(() => {
   const path = anime.path(letterRef.value)
@@ -89,8 +62,6 @@ onMounted(() => {
 
   onLetterPosition.value.pathLen = plen
   console.log(plen)
-
-  letterRef.value?.setAttribute('stroke-dasharray', `${plen / 2} ${plen / 2}`)
 
   anime({
     targets: onLetterPosition.value,
@@ -104,40 +75,9 @@ onMounted(() => {
   })
 })
 
-onMounted(() => {
-  const res = localStorage.getItem('particleSimControls')
-
-  if (res) {
-    const parsed = JSON.parse(res)
-
-    if (typeof parsed === 'object') {
-      Object.keys(controls.value).forEach((k) => {
-        if (parsed[k] && !Number.isNaN(Number(parsed[k]))) {
-          // @ts-ignore
-          controls.value[k] = Number(parsed[k])
-        }
-      })
-    }
-  }
-  canSave.value = true
-})
-
-watchEffect(() => {
-  if (!canSave.value) return
-  localStorage.setItem('particleSimControls', JSON.stringify(controls.value))
-})
-
-onMounted(() => {
+const initSim = () => {
   if (!canvasP.value) return
-  scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(
-    75,
-    document.documentElement.clientWidth / document.documentElement.clientHeight,
-    0.1,
-    1000,
-  )
-
-  renderer = new THREE.WebGLRenderer({ alpha: true })
+  camera = new THREE.PerspectiveCamera(75, document.documentElement.clientWidth / document.documentElement.clientHeight, 0.1, 1000)
 
   renderer.setSize(document.documentElement.clientWidth, document.documentElement.clientHeight)
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
@@ -173,23 +113,8 @@ onMounted(() => {
   const dtVelocity = gpuCompute.createTexture()
   const dtInfo = gpuCompute.createTexture()
 
-  function easeInCubic(x: number): number {
-    return x * x * x
-  }
-
-  function easeInExpo(x: number): number {
-    return x === 0 ? 0 : Math.pow(2, 10 * x - 10)
-  }
-
-  fillTexture(dtRandom, () => [
-    Math.random(),
-    Math.random(),
-    Math.random(),
-    customRandomness2(0, 5000, easeInExpo),
-  ])
-  fillTexture(dtInfo, (index) => {
-    return [0, index / PPS, 1, 0]
-  })
+  fillTexture(dtRandom, () => [Math.random(), Math.random(), Math.random(), customRandomness2(0, 5000, easeInExpo)])
+  fillTexture(dtInfo, (index) => [0, index / PPS, 1, 0])
 
   const randomVariable = gpuCompute.addVariable('textureRandom', FragRandom, dtRandom)
   const velocityVariable = gpuCompute.addVariable('textureVelocity', FragVelocity, dtVelocity)
@@ -197,35 +122,19 @@ onMounted(() => {
   const infoVariable = gpuCompute.addVariable('textureInfo', FragInfo, dtInfo)
 
   gpuCompute.setVariableDependencies(randomVariable, [randomVariable])
-  gpuCompute.setVariableDependencies(velocityVariable, [
-    randomVariable,
-    positionVariable,
-    velocityVariable,
-    infoVariable,
-  ])
+  gpuCompute.setVariableDependencies(velocityVariable, [randomVariable, positionVariable, velocityVariable, infoVariable])
   gpuCompute.setVariableDependencies(infoVariable, [infoVariable, randomVariable])
-  gpuCompute.setVariableDependencies(positionVariable, [
-    positionVariable,
-    velocityVariable,
-    randomVariable,
-    infoVariable,
-  ])
+  gpuCompute.setVariableDependencies(positionVariable, [positionVariable, velocityVariable, randomVariable, infoVariable])
 
   const vars = [randomVariable, velocityVariable, positionVariable, infoVariable]
 
   vars.forEach((v) => {
     v.material.defines.BOUNDS = texSize.toFixed(2)
-
     v.wrapS = THREE.RepeatWrapping
     v.wrapT = THREE.RepeatWrapping
   })
 
-  const updateComputeUniforms = (
-    time: number,
-    delta: number,
-    emitter: THREE.Vector3,
-    emitDirection: THREE.Vector3,
-  ) => {
+  const updateComputeUniforms = (time: number, delta: number, emitter: THREE.Vector3, emitDirection: THREE.Vector3) => {
     vars.forEach((v) => {
       const uni = v.material.uniforms
       uni['time'] = { value: time }
@@ -313,10 +222,8 @@ onMounted(() => {
     side: THREE.DoubleSide,
   })
 
-  const hiddenPlay = new THREE.PlaneGeometry(1000, 1000, 1, 1)
-  const hP = new THREE.Mesh(hiddenPlay, material)
-
-  scene.add(hP)
+  const hiddenPlane = new THREE.PlaneGeometry(1000, 1000, 1, 1)
+  scene.add(new THREE.Mesh(hiddenPlane, material))
 
   const clock = new THREE.Clock()
   clock.start()
@@ -334,7 +241,6 @@ onMounted(() => {
   let elapsedTime = 0
 
   const animationLoop: FrameRequestCallback = () => {
-    console.log('frame')
     if (!scene || !camera) return
 
     const delta = clock.getDelta()
@@ -344,63 +250,64 @@ onMounted(() => {
     const cursorInSpace = new THREE.Vector3()
     raycaster.ray.intersectPlane(thePlane, cursorInSpace)
 
-    const radians = onLetterPosition.value.rotate * (Math.PI / 180)
+    let emitFrom = new THREE.Vector3(controls.value.emitAtX, controls.value.emitAtY, 0)
+    let emitTowards = new THREE.Vector3(controls.value.emitTowardsY, controls.value.emitTowardsY, 0)
 
-    const tX = Math.cos(radians)
-    const tY = Math.sin(radians)
+    if (controls.value.emitAtCursor) {
+      emitFrom = cursorInSpace
+    } else if (controls.value.emitAtLetter) {
+      const radians = onLetterPosition.value.rotate * (Math.PI / 180)
 
-    const letterEmitX = range(
-      0,
-      width.value,
-      -1,
-      1,
-      letterWrapperDims.left.value + onLetterPosition.value.x,
-    )
-    const letterEmitY = range(
-      0,
-      height.value,
-      1,
-      -1,
-      letterWrapperDims.top.value + onLetterPosition.value.y,
-    )
+      const tX = Math.cos(radians)
+      const tY = Math.sin(radians)
 
-    // -1 -1 left bottom 1 1 top right
-    const emitCoords = new THREE.Vector2(letterEmitX, letterEmitY)
+      const letterEmitX = range(0, width.value, -1, 1, letterWrapperDims.left.value + onLetterPosition.value.x)
+      const letterEmitY = range(0, height.value, 1, -1, letterWrapperDims.top.value + onLetterPosition.value.y)
 
-    raycaster.setFromCamera(emitCoords, camera)
-    const emitFromInSpace = new THREE.Vector3()
-    raycaster.ray.intersectPlane(thePlane, emitFromInSpace)
+      // -1 -1 left bottom 1 1 top right
+      const emitCoords = new THREE.Vector2(letterEmitX, letterEmitY)
 
-    updateComputeUniforms(
-      elapsedTime,
-      delta,
-      new THREE.Vector3(cursorInSpace.x, cursorInSpace.y, 0),
-      new THREE.Vector3(emitFromInSpace.x + 300 * -tX, emitFromInSpace.y + 300 * tY, 0),
-    )
+      raycaster.setFromCamera(emitCoords, camera)
+      const emitFromInSpace = new THREE.Vector3()
+      raycaster.ray.intersectPlane(thePlane, emitFromInSpace)
+
+      emitFrom = emitFromInSpace
+      emitTowards = new THREE.Vector3(emitFromInSpace.x + 300 * -tX, emitFromInSpace.y + 300 * tY, 0)
+    }
+
+    if (controls.value.emitTowardsCursor) {
+      emitTowards = cursorInSpace
+    }
+
+    updateComputeUniforms(elapsedTime, delta, emitFrom, emitTowards)
 
     gpuCompute.compute()
 
-    //particleMaterial.uniforms.uLightPosX.value = cursorInSpace.x
-    //particleMaterial.uniforms.uLightPosY.value = cursorInSpace.y
-    particleMaterial.uniforms.uLightPosX.value = controls.value.uLightPosX
-    particleMaterial.uniforms.uLightPosY.value = controls.value.uLightPosY
+    if (controls.value.lightAtCursor) {
+      particleMaterial.uniforms.uLightPosX.value = cursorInSpace.x
+      particleMaterial.uniforms.uLightPosY.value = cursorInSpace.y
+    } else {
+      particleMaterial.uniforms.uLightPosX.value = controls.value.uLightPosX
+      particleMaterial.uniforms.uLightPosY.value = controls.value.uLightPosY
+    }
     particleMaterial.uniforms.uLightPower.value = controls.value.uLightPower
     particleMaterial.uniforms.uShadowDirectional.value = controls.value.uShadowDirectional
     particleMaterial.uniforms.uShadowRound.value = controls.value.uShadowRound
 
     particleMaterial.uniforms.uTime.value = elapsedTime
-    particleMaterial.uniforms.uPosition.value =
-      gpuCompute.getCurrentRenderTarget(positionVariable).texture
-    particleMaterial.uniforms.uVelocity.value =
-      gpuCompute.getCurrentRenderTarget(velocityVariable).texture
+    particleMaterial.uniforms.uPosition.value = gpuCompute.getCurrentRenderTarget(positionVariable).texture
+    particleMaterial.uniforms.uVelocity.value = gpuCompute.getCurrentRenderTarget(velocityVariable).texture
     particleMaterial.uniforms.uInfo.value = gpuCompute.getCurrentRenderTarget(infoVariable).texture
-    particleMaterial.uniforms.uRandom.value =
-      gpuCompute.getCurrentRenderTarget(randomVariable).texture
+    particleMaterial.uniforms.uRandom.value = gpuCompute.getCurrentRenderTarget(randomVariable).texture
 
     renderer.render(scene, camera)
     requestAnimationFrame(animationLoop)
   }
 
   requestAnimationFrame(animationLoop)
+}
+
+onMounted(() => {
+  initSim()
 })
 </script>

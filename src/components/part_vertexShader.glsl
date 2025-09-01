@@ -89,7 +89,7 @@ void main() {
 
     // Calculations for lighting
     float distanceFromLight = distance(projectedPosition.xy, vec2(uLightPosX, uLightPosY));
-    vLightness = max(1.0 - sineOut(distanceFromLight / uLightPower), 0.2);
+    vLightness = min(max(1.0 - cubicOut(distanceFromLight / uLightPower), 0.2), 1.0);
 
     float pointInGlobal = atan(vPosition.y - uLightPosY, vPosition.x - uLightPosX);
     vPointInGlobalMod = 1.0 - mod(0.0 - pointInGlobal, PI_2) / PI_2;

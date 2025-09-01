@@ -57,7 +57,7 @@ void main() {
         float d5 = fbm(random.zy * time * 1.0) * uBaseMult;
 
         vec3 baseDirection = uEmitTowards - uEmitter;
-        gl_FragColor = vec4((baseDirection * 0.001 + vec3(d3, d4, d5)) * uBaseMult, 100.0);
+        gl_FragColor = vec4((baseDirection * 0.01 + vec3(d3, d4, d5)) * uBaseMult, 100.0);
     } else {
         // This is primary noise
         float n1X = fbm((selfPosition.xy * uVelPositionScale + random.yx * uVelRandomScale + time * uVelTimeScale) * uNoiseScale) * uVelMult;

@@ -27,6 +27,16 @@ export const defaultControls = {
   uLightPower: 500,
   uShadowRound: 0.2,
   uShadowDirectional: 0.5,
+
+  lightAtCursor: false,
+  emitAtCursor: false,
+  emitAtLetter: false,
+  emitTowardsCursor: false,
+
+  emitAtX: 0,
+  emitAtY: 0,
+  emitTowardsX: 0,
+  emitTowardsY: 0,
 }
 
 export type IContols = typeof defaultControls

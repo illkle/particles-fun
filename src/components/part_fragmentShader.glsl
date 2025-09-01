@@ -47,7 +47,6 @@ void main() {
     float lightConeB = smoothstep(1.0 - s1, 1.0 - s2, angleDistance);
 
     vec4 maskedShadow = mix(vec4(0.0) + backShadow * uShadowRound, backShadow * uShadowDirectional, lightConeA + lightConeB);
-
-    //gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+ 
     gl_FragColor = maskedShadow + mainParticle * strength;
 }

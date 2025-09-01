@@ -15,11 +15,13 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@internationalized/number": "^3.6.5",
     "@tailwindcss/vite": "^4.1.12",
     "@types/animejs": "^3.1.12",
-    "@vueuse/core": "^11.0.0",
+    "@vueuse/core": "^11.3.0",
     "animejs": "^3.2.2",
     "lygia": "^1.1.3",
+    "reka-ui": "^2.5.0",
     "tailwindcss": "^4.1.12",
     "three": "^0.167.1",
     "vue": "^3.5.18"
