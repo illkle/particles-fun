@@ -4,9 +4,7 @@ uniform float uSize;
 uniform float uTime;
 
 uniform sampler2D uPosition;
-uniform sampler2D uVelocity;
 uniform sampler2D uInfo;
-uniform sampler2D uRandom;
 
 varying float vLightness;
 varying float vPointInGlobalMod;
@@ -21,8 +19,6 @@ attribute vec2 aTarget;
 #define PI_2 6.283185
 #define HALF_PI 1.5707963267948966
 
-varying vec2 vUv;
-varying vec3 vPosition;
 
 float sineOut(float t) {
     return sin(t * HALF_PI);
@@ -55,9 +51,7 @@ float exponentialOut(float t) {
 
 void main() {
 
-    vec4 myRandom = texture2D(uRandom, aTarget);
     vec4 myInfo = texture2D(uInfo, aTarget);
-    vec4 myVelocity = texture2D(uVelocity, aTarget);
 
     float timeBorn = myInfo.x;
     float timeWhenDead = myInfo.y;
@@ -71,8 +65,7 @@ void main() {
     float sizeAnimateOutFactor = exponentialOut(1.0 - percentOfLife);
     float sizeVal = sizeBaseSize * sizeAnimateInFactor * sizeAnimateOutFactor;
 
-    vec4 ss = texture2D(uPosition, aTarget);
-    vec3 finalPosition = ss.xyz;
+    vec3 finalPosition = texture2D(uPosition, aTarget).xyz;
 
     // Generic transforms to account for 3d space and camera 
     vec4 modelPosition = modelMatrix * vec4(finalPosition, 1.0);
@@ -83,15 +76,11 @@ void main() {
 
     gl_PointSize = sizeVal * uSize * (1.0 / -viewPosition.z);
 
-    // Aliveness turnes off particle color in fragment shader.
-    // We need to also make it zero when size is zero
-    vPosition = projectedPosition.xyz;
-
     // Calculations for lighting
     float distanceFromLight = distance(projectedPosition.xy, vec2(uLightPosX, uLightPosY));
     vLightness = min(max(1.0 - cubicOut(distanceFromLight / uLightPower), 0.2), 1.0);
 
-    float pointInGlobal = atan(vPosition.y - uLightPosY, vPosition.x - uLightPosX);
+    float pointInGlobal = atan(projectedPosition.y - uLightPosY, projectedPosition.x - uLightPosX);
     vPointInGlobalMod = 1.0 - mod(0.0 - pointInGlobal, PI_2) / PI_2;
 
 }
