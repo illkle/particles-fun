@@ -10,7 +10,7 @@ void main() {
     vec4 position = texture2D(texturePosition, uv);
     vec4 infoData = texture2D(textureInfo, uv);
 
-    if(infoData.z > 0.9) {
+    if(infoData.z == 1.0) {
         position.x = uEmitter.x;
         position.y = uEmitter.y;
         position.z = uEmitter.z;

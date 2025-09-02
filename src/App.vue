@@ -11,7 +11,11 @@ import Particles from './components/particles.vue'
 
 html,
 body {
-  background: black;
+  background: rgb(12, 12, 12);
   color: white;
+}
+
+body {
+  overflow: hidden;
 }
 </style>

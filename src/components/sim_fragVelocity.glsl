@@ -6,6 +6,8 @@ uniform float delta; // about 0.016
 uniform float uBaseMult;
 uniform float uBaseTimeScale;
 
+uniform float uBaseDirectionStrength;
+
 uniform float uVelPositionScale;
 uniform float uVelRandomScale;
 uniform float uVelTimeScale;
@@ -50,15 +52,16 @@ void main() {
     vec4 infoData = texture2D(textureInfo, uv);
     float mySize = infoData.w;
 
-    if(infoData.z > 0.9) {
+    if(infoData.z == 1.0) {
         // generate base velocity
         float d3 = fbm(random.xy * time * 1.0) * uBaseMult;
         float d4 = fbm(random.yx * time * 1.0) * uBaseMult;
         float d5 = fbm(random.zy * time * 1.0) * uBaseMult;
 
         vec3 baseDirection = uEmitTowards - uEmitter;
-        gl_FragColor = vec4((baseDirection * 0.01 + vec3(d3, d4, d5)) * uBaseMult, 100.0);
-    } else {
+        gl_FragColor = vec4((baseDirection * uBaseDirectionStrength + vec3(d3, d4, d5)) * uBaseMult, 100.0);
+        // Extra condition removes particle that initially exist
+    } else if (infoData.y != 0.0) {
         // This is primary noise
         float n1X = fbm((selfPosition.xy * uVelPositionScale + random.yx * uVelRandomScale + time * uVelTimeScale) * uNoiseScale) * uVelMult;
         float n1Y = fbm((selfPosition.yx * uVelPositionScale + random.xy * uVelRandomScale + time * uVelTimeScale) * uNoiseScale) * uVelMult;

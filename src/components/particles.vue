@@ -1,6 +1,6 @@
 <template>
-  <div ref="letterWrapper" class="absolute top-1/2 opacity-0 -translate-y-1/2 left-1/2 -translate-x-1/2 z-50">
-    <svg class="w-[300px]" viewBox="0 0 101 109" stroke="white" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
+  <div ref="letterWrapper" class="absolute top-1/2 -translate-y-1/2 left-1/2 opacity-100 -translate-x-1/2">
+    <svg class="w-[300px]" viewBox="0 0 101 109" fill="none" stroke="white" stroke-width="0.1" xmlns="http://www.w3.org/2000/svg">
       <path
         ref="letterRef"
         d="M0.782227 107V0.5H30.1822V42.65L62.7322 0.5H96.0322L58.6822 48.05L98.1322 107H65.5822L39.4822 67.1L30.1822 78.5V107H0.782227Z"
@@ -8,8 +8,8 @@
     </svg>
 
     <div
-      class="absolute top-0 left-0 w-2 rounded-2xl h-2 bg-red-500"
-      :style="`transform: translate(${onLetterPosition.x}px, ${onLetterPosition.y}px)`"
+      class="absolute top-0 left-0 w-2 rounded-2xl h-2 opacity-0 bg-red-500"
+      :style="`transform: translate(${onLetterPosition.translateX}px, ${onLetterPosition.translateY}px)`"
     ></div>
   </div>
   <Controls v-model="controls" />
@@ -26,7 +26,6 @@ import * as THREE from 'three'
 import FragmentShader from './part_fragmentShader.glsl'
 import VertexShader from './part_vertexShader.glsl'
 import { GPUComputationRenderer } from 'three/examples/jsm/Addons.js'
-import anime from 'animejs/lib/anime.es.js'
 import { useElementBounding, useLocalStorage, useWindowSize } from '@vueuse/core'
 import { ref, computed, onMounted, watchEffect } from 'vue'
 import { AttributeGenerator } from '@/utils/attributeGenerator'
@@ -34,6 +33,7 @@ import { easeInExpo, fillTexture } from '@/utils/helpers'
 import { customRandomness2 } from '@/utils/random'
 import { range } from '@/utils/helpers'
 import { defaultControls } from './controls'
+import { animate, svg } from 'animejs'
 
 const controls = useLocalStorage('particleFunSettings', defaultControls)
 
@@ -51,27 +51,16 @@ const letterWrapperDims = useElementBounding(letterWrapper)
 
 const letterRef = ref<HTMLDivElement | null>(null)
 
-const onLetterPosition = ref({ x: 0, y: 0, rotate: 0, percentage: 0, pathLen: 0 })
-
-const letterSLen = 20
+const onLetterPosition = ref({ translateX: 0, translateY: 0, rotate: 0, percentage: 0, pathLen: 0 })
 
 onMounted(() => {
-  const path = anime.path(letterRef.value)
+  if (!letterRef.value) return
 
-  const plen = path('').totalLength
-
-  onLetterPosition.value.pathLen = plen
-  console.log(plen)
-
-  anime({
-    targets: onLetterPosition.value,
-    x: path('x'),
-    y: path('y'),
-    percentage: 1,
-    rotate: path('angle'),
-    easing: 'linear',
-    duration: 8000,
+  animate(onLetterPosition.value, {
+    duration: 2000,
     loop: true,
+    playbackEase: 'linear',
+    ...svg.createMotionPath(letterRef.value),
   })
 })
 
@@ -94,8 +83,7 @@ const initSim = () => {
 
   const particlesGeo = new THREE.BufferGeometry()
 
-  const count = 20000
-  const PPS = count / 10
+  const count = Math.round(controls.value.totalParticles)
 
   const texSize = Math.ceil(Math.sqrt(count))
 
@@ -114,7 +102,7 @@ const initSim = () => {
   const dtInfo = gpuCompute.createTexture()
 
   fillTexture(dtRandom, () => [Math.random(), Math.random(), Math.random(), customRandomness2(0, 5000, easeInExpo)])
-  fillTexture(dtInfo, (index) => [0, index / PPS, 1, 0])
+  fillTexture(dtInfo, () => [0, 0, 1, 0])
 
   const randomVariable = gpuCompute.addVariable('textureRandom', FragRandom, dtRandom)
   const velocityVariable = gpuCompute.addVariable('textureVelocity', FragVelocity, dtVelocity)
@@ -137,6 +125,8 @@ const initSim = () => {
   const updateComputeUniforms = (time: number, delta: number, emitter: THREE.Vector3, emitDirection: THREE.Vector3) => {
     vars.forEach((v) => {
       const uni = v.material.uniforms
+
+      uni['uTotalParticles'] = { value: count }
       uni['time'] = { value: time }
       uni['delta'] = { value: delta }
       uni['uEmitter'] = { value: emitter }
@@ -261,8 +251,8 @@ const initSim = () => {
       const tX = Math.cos(radians)
       const tY = Math.sin(radians)
 
-      const letterEmitX = range(0, width.value, -1, 1, letterWrapperDims.left.value + onLetterPosition.value.x)
-      const letterEmitY = range(0, height.value, 1, -1, letterWrapperDims.top.value + onLetterPosition.value.y)
+      const letterEmitX = range(0, width.value, -1, 1, letterWrapperDims.left.value + onLetterPosition.value.translateX)
+      const letterEmitY = range(0, height.value, 1, -1, letterWrapperDims.top.value + onLetterPosition.value.translateY)
 
       // -1 -1 left bottom 1 1 top right
       const emitCoords = new THREE.Vector2(letterEmitX, letterEmitY)
