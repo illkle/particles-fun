@@ -1,5 +1,5 @@
 <template>
-  <div ref="letterWrapper" class="absolute top-1/2 -translate-y-1/2 left-1/2 opacity-100 -translate-x-1/2">
+  <div ref="letterWrapper" class="absolute top-1/2 -translate-y-1/2 left-1/2 opacity-10 -translate-x-1/2">
     <svg class="w-[300px]" viewBox="0 0 101 109" fill="none" stroke="white" stroke-width="0.1" xmlns="http://www.w3.org/2000/svg">
       <path
         ref="letterRef"
@@ -12,7 +12,7 @@
       :style="`transform: translate(${onLetterPosition.translateX}px, ${onLetterPosition.translateY}px)`"
     ></div>
   </div>
-  <Controls v-model="controls" />
+  <Controls v-model="controls" v-model:name="currentName" />
   <div ref="canvasP" class="absolute top-0 overflow-hidden opacity-100"></div>
 </template>
 
@@ -32,10 +32,11 @@ import { AttributeGenerator } from '@/utils/attributeGenerator'
 import { easeInExpo, fillTexture } from '@/utils/helpers'
 import { customRandomness2 } from '@/utils/random'
 import { range } from '@/utils/helpers'
-import { defaultControls } from './controls'
+import { controlsSchema, defaultControls, useControls } from './controls'
 import { animate, svg } from 'animejs'
+import Stats from 'stats.js'
 
-const controls = useLocalStorage('particleFunSettings', defaultControls)
+const { controls, currentName } = useControls()
 
 const { width, height } = useWindowSize()
 
@@ -53,6 +54,7 @@ const letterRef = ref<HTMLDivElement | null>(null)
 
 const onLetterPosition = ref({ translateX: 0, translateY: 0, rotate: 0, percentage: 0, pathLen: 0 })
 
+const sss = new Stats()
 onMounted(() => {
   if (!letterRef.value) return
 
@@ -62,6 +64,9 @@ onMounted(() => {
     playbackEase: 'linear',
     ...svg.createMotionPath(letterRef.value),
   })
+
+  sss.showPanel(0) // 0: fps, 1: ms, 2: mb, 3+: custom
+  document.body.appendChild(sss.dom)
 })
 
 const initSim = () => {
@@ -166,8 +171,8 @@ const initSim = () => {
     fragmentShader: FragmentShader,
     transparent: true,
     vertexColors: true,
-
     depthWrite: false,
+    blending: THREE.NormalBlending,
     uniforms: {
       uEmitter: {
         value: new THREE.Vector3(),
@@ -231,6 +236,8 @@ const initSim = () => {
   let elapsedTime = 0
 
   const animationLoop: FrameRequestCallback = () => {
+    sss.begin()
+
     if (!scene || !camera) return
 
     const delta = clock.getDelta()
@@ -291,6 +298,8 @@ const initSim = () => {
     particleMaterial.uniforms.uRandom.value = gpuCompute.getCurrentRenderTarget(randomVariable).texture
 
     renderer.render(scene, camera)
+
+    sss.end()
     requestAnimationFrame(animationLoop)
   }
 

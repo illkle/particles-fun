@@ -19,7 +19,6 @@ attribute vec2 aTarget;
 #define PI_2 6.283185
 #define HALF_PI 1.5707963267948966
 
-
 float sineOut(float t) {
     return sin(t * HALF_PI);
 }

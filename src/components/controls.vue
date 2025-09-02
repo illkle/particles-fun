@@ -14,11 +14,27 @@
     </div>
 
     <div class="overflow-y-scroll p-4 flex flex-col gap-4">
-      <button @click="controls = defaultControls">Reset to default controls</button>
+      <div class="flex flex-col gap-2">
+        <h4>Presets</h4>
+        <div class="flex gap-2">
+          <div
+            class="border px-2 rounded data-[active=true]:bg-neutral-50 data-[active=true]:text-neutral-950"
+            :data-active="currentName === k"
+            v-for="(_, k) in presets"
+            @click="() => (currentName = k)"
+          >
+            {{ k }}
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-4">
+        <button class="border p-1" @click="copy">Copy Settings JSON</button>
+        <button class="border p-1" @click="paste">Parse Settings JSON</button>
+      </div>
 
       <div class="mt-4">
         <h4>Global</h4>
-        <p class="text-xs mb-1 opacity-50">Total particles require page refresh</p>
+        <p class="text-xs mb-1 opacity-50">Refresh page for total particles to take effect</p>
         <div class="grid grid-cols-4 gap-x-2 gap-y-1">
           <NumberInput v-model="controls.totalParticles" label="Total particles" />
           <NumberInput v-model="controls.uSizeMod" label="Size modifier" />
@@ -55,7 +71,7 @@
 
       <div>
         <h4>Secondary Noise</h4>
-        <p class="text-xs mb-1 opacity-50">Second noise for particle velocity, that only applies to particles in certain size range</p>
+        <p class="text-xs mb-1 opacity-50">Second noise for particle velocity, that only applies to smaller particles</p>
         <div class="grid grid-cols-3 gap-x-2 gap-y-1">
           <NumberInput v-model="controls.uVel2PositionScale" label="Variance over particle position" />
           <NumberInput v-model="controls.uVel2RandomScale" label="Random variance" />
@@ -94,11 +110,27 @@
 
 <script lang="ts" setup>
 import NumberInput from './inputs/NumberInput.vue'
-import { defaultControls, type IContols } from './controls'
+import { controlsSchema, defaultControls, presets, type IContols } from './controls'
 import Checkbox from './inputs/Checkbox.vue'
 import { ref } from 'vue'
 
 const opened = ref(false)
 
 const controls = defineModel<IContols>()
+
+const currentName = defineModel<string>('name')
+
+const copy = async () => {
+  await navigator.clipboard.writeText(JSON.stringify(controls.value))
+}
+
+const paste = async () => {
+  const clipboardContents = await navigator.clipboard.read()
+  console.log(clipboardContents)
+  const i = clipboardContents[0]
+  const blob = await i.getType('text/plain')
+  const blobText = await blob.text()
+
+  controls.value = controlsSchema.parse(JSON.parse(blobText))
+}
 </script>
